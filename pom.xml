@@ -27,6 +27,9 @@
         <mockito.version>5.18.0</mockito.version>
         <spring-security.version>6.5.1</spring-security.version>
         <spring-mvc.version>6.2.8</spring-mvc.version>
+        <hikari.version>6.3.0</hikari.version>
+        <postgres.version>42.2.10</postgres.version>
+        <lombok.version>1.18.38</lombok.version>
         <!-- VERSIONS -->
     </properties>
 
@@ -52,9 +55,24 @@
             <version>${spring-security.version}</version>
         </dependency>
         <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+        </dependency>
+        <dependency>
             <groupId>io.swagger.core.v3</groupId>
             <artifactId>swagger-annotations</artifactId>
             <version>${swagger.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>${hikari.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgres.version}</version>
         </dependency>
         <!-- TEST DEPENDENCIES -->
         <dependency>
