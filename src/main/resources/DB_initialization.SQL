@@ -1,10 +1,15 @@
+DROP TRIGGER IF EXISTS set_updated_at ON users;
+DROP SEQUENCE IF EXISTS users_id_seq CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
 CREATE SEQUENCE users_id_seq;
 
 CREATE TABLE users (
     id BIGINT PRIMARY KEY DEFAULT nextval('users_id_seq'),
     username VARCHAR(30) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(30) NOT NULL DEFAULT 'ROLE_USER' CHECK (role IN ('ROLE_USER', 'ROLE_ADMIN')),
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
