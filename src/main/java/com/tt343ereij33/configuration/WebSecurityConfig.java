@@ -6,23 +6,33 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.config.oauth2.client.CommonOAuth2Provider;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.InMemoryOAuth2AuthorizedClientService;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static org.springframework.security.config.oauth2.client.CommonOAuth2Provider.GOOGLE;
 
 /**
  * Configures Spring Security for the web application.
@@ -52,6 +62,10 @@ import java.util.Set;
 @ComponentScan("com.tt343ereij33")
 public class WebSecurityConfig {
     private JwtTokenProvider jwtTokenProvider;
+    private static final List<CommonOAuth2Provider> OAUTH2_PROVIDERS = List.of(GOOGLE);
+    private static final String CLIENT_PROPERTY_KEY_PREFIX = "OAUTH2_CLIENT_REGISTRATION_";
+    private static final String CLIENT_ID_PROPERTY_KEY_SUFFIX = "_CLIENT_ID";
+    private static final String CLIENT_SECRET_PROPERTY_KEY_SUFFIX = "_CLIENT_SECRET";
     private static final Set<String> PERMIT_ALL_ENDPOINTS = Set.of(
             "/auth/**", "/public/**"
     );
@@ -64,27 +78,26 @@ public class WebSecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(request -> request
                         .requestMatchers(PERMIT_ALL_ENDPOINTS.toArray(new String[0]))
                         .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/private/user")
-                        .hasAnyRole("USER", "ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/private/admin")
-                        .hasRole("ADMIN")
                         .anyRequest()
                         .authenticated())
-                .addFilterBefore(new JwtTokenFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new JwtTokenFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)
+                .oauth2Login(oauth -> oauth
+                        .clientRegistrationRepository(clientRegistrationRepository())
+                        .authorizedClientService(authorizedClientService()));
         return http.build();
     }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        return new BCryptPasswordEncoder(15);
     }
 
     @Bean
@@ -93,5 +106,42 @@ public class WebSecurityConfig {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder);
         return new ProviderManager(authProvider);
+    }
+
+    @Bean
+    public OAuth2AuthorizedClientService authorizedClientService() {
+        return new InMemoryOAuth2AuthorizedClientService(clientRegistrationRepository());
+    }
+
+    @Bean
+    public ClientRegistrationRepository clientRegistrationRepository() {
+        List<ClientRegistration> registrations = Stream.of(OAUTH2_PROVIDERS.toArray(new CommonOAuth2Provider[0]))
+                .map(this::getRegistration)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toList());
+
+        return new InMemoryClientRegistrationRepository(registrations);
+    }
+
+    private Optional<ClientRegistration> getRegistration(CommonOAuth2Provider provider) {
+        if (isKnownClient(provider)) {
+            return Optional.of(getClientBuilder(provider)
+                    .clientId(System.getenv(CLIENT_PROPERTY_KEY_PREFIX + provider + CLIENT_ID_PROPERTY_KEY_SUFFIX))
+                    .clientSecret(System.getenv(CLIENT_PROPERTY_KEY_PREFIX + provider + CLIENT_SECRET_PROPERTY_KEY_SUFFIX))
+                    .build());
+        }
+        return Optional.empty();
+    }
+
+    private boolean isKnownClient(CommonOAuth2Provider provider) {
+        return OAUTH2_PROVIDERS.contains(provider);
+    }
+
+    private ClientRegistration.Builder getClientBuilder(CommonOAuth2Provider provider) {
+        return switch (provider) {
+            case GOOGLE -> CommonOAuth2Provider.GOOGLE.getBuilder(provider.name());
+            default -> throw new RuntimeException("Unknown OAuth2 client");
+        };
     }
 }

@@ -46,17 +46,13 @@ public class AuthenticationController {
     }
 
     @PostMapping("/sign-up")
-    public ResponseEntity<String> signUp(@RequestBody RegistrationRequestDTO registrationRequestDTO) {
-        try {
-            if (userDetailsService.register(
-                    registrationRequestDTO.username(),
-                    registrationRequestDTO.email(),
-                    registrationRequestDTO.password())) {
-                return new ResponseEntity<>(HttpStatus.CREATED);
-            }
-            return new ResponseEntity<>("Error creating user", HttpStatus.INTERNAL_SERVER_ERROR);
-        } catch (UserCreationException e) {
-            return new ResponseEntity<>("Error creating user", HttpStatus.INTERNAL_SERVER_ERROR);
+    public ResponseEntity<String> signUp(@RequestBody RegistrationRequestDTO registrationRequestDTO) throws UserCreationException {
+        if (userDetailsService.register(
+                registrationRequestDTO.username(),
+                registrationRequestDTO.email(),
+                registrationRequestDTO.password())) {
+            return new ResponseEntity<>(HttpStatus.CREATED);
         }
+        throw new UserCreationException("Unknown error during registration occurred");
     }
 }

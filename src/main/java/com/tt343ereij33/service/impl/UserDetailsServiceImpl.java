@@ -11,6 +11,9 @@ import org.springframework.stereotype.Service;
 
 import java.sql.SQLException;
 
+import static com.tt343ereij33.utils.SqlErrorMessageConstants.EMAIL_ALREADY_EXISTS;
+import static com.tt343ereij33.utils.SqlErrorMessageConstants.USERNAME_ALREADY_EXISTS;
+
 @Service
 public class UserDetailsServiceImpl implements UserDetailsService {
     private final UserDAO userDAO;
@@ -39,7 +42,12 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                     .role(Role.ROLE_USER)
                     .build());
         } catch (SQLException e) {
-            throw new UserCreationException("Error creating user");
+            if (e.getMessage().contains(USERNAME_ALREADY_EXISTS)) {
+                throw new UserCreationException("Username already exists");
+            } else if (e.getMessage().contains(EMAIL_ALREADY_EXISTS)) {
+                throw new UserCreationException("Email already exists");
+            }
+            throw new UserCreationException("Unknown error during registration occurred");
         }
     }
 }
