@@ -28,8 +28,10 @@ import java.util.stream.Collectors;
 public class JwtTokenProvider {
     private static final String JWT_SECRET = System.getenv("JWT_SECRET");
     private final UserDetailsServiceImpl userDetailsServiceImpl;
-    @Value("${jwt.validityInMilliseconds:3600000}")
-    private long jwtValidityInMilliseconds;
+    @Value("${jwt.token.validityInMilliseconds:3600000}")
+    private long jwtTokenValidityInMilliseconds;
+    @Value("${refresh.token.validityInMilliseconds:2592000000}")
+    private long refreshTokenValidityInMilliseconds;
     private SecretKey secretKey;
 
     @Autowired
@@ -49,11 +51,25 @@ public class JwtTokenProvider {
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
         Date now = new Date();
-        Date validity = new Date(now.getTime() + jwtValidityInMilliseconds);
+        Date validity = new Date(now.getTime() + jwtTokenValidityInMilliseconds);
         return Jwts.builder()
                 .claims(Jwts.claims()
                         .subject(username)
                         .add("roles", authorities)
+                        .build())
+                .issuedAt(now)
+                .expiration(validity)
+                .signWith(secretKey, Jwts.SIG.HS256)
+                .compact();
+    }
+
+    public String createRefreshToken(User user) {
+        String username = user.getUsername();
+        Date now = new Date();
+        Date validity = new Date(now.getTime() + refreshTokenValidityInMilliseconds);
+        return Jwts.builder()
+                .claims(Jwts.claims()
+                        .subject(username)
                         .build())
                 .issuedAt(now)
                 .expiration(validity)

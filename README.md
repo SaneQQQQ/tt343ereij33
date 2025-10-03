@@ -1,1 +1,26 @@
-<img width="1024" height="1024" alt="ChatGPT Image Jul 11, 2025 at 11_27_16 PM" src="https://github.com/user-attachments/assets/31dff198-4235-4685-b389-91669d72d271" />
+# tt343ereij33
+
+## Environment Variables
+
+| Variable                                              | Description                                                                              |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| **`DB_URL`**                                          | JDBC connection URL for the database                                                     |
+| **`DB_USERNAME`**                                     | Database username                                                                        |
+| **`DB_PASSWORD`**                                     | Database password                                                                        |
+| **`JWT_SECRET`**                                      | Secret key used to sign JWT tokens (must be a long random string, 32+ chars recommended) |
+| **`CORS_ALLOWED_ORIGINS`**                            | Comma-separated list of frontend origins allowed for CORS                                |
+| **`OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID`**     | Google OAuth2 Client ID from Google Cloud Console                                        |
+| **`OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET`** | Google OAuth2 Client Secret from Google Cloud Console                                    |
+
+## API Endpoints
+
+| Method   | Endpoint                  | Description                                         | Request                                                 | Success Response                                                                                          | Error Responses                                                                                                                                          |
+| -------- | ------------------------- | --------------------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **POST** | `/auth/sign-up`           | Register new user                                   | `json { "username": "", "email": "", "password": "" } ` | **201 Created** (empty body)                                                                              | **400 Bad Request** → `json { "error": "" } `<br>**500 Internal Server Error** → `json { "error": "" } `                                                 |
+| **POST** | `/auth/sign-in`           | Sign in with username/password                      | `json { "username": "", "password": "" } `              | **200 OK** → `json { "access_token": "", "refresh_token": "", "token_type": "Bearer", "expires_in": 0 } ` | **401 Unauthorized** → `json { "error": "" } `<br>**500 Internal Server Error** → `json { "error": "" } `                                                |
+| **GET**  | `/oauth2/sign-in/google`  | Initiate Google OAuth2 login                        | *(no body)*                                             | **302 Found** → redirect to Google OAuth2                                                                 | **500 Internal Server Error** → `json { "error": "" } `                                                                                                  |
+| **GET**  | `/oauth2/callback/google` | Google redirects back, backend issues tokens        | *(handled by backend)*                                  | **200 OK** → `json { "access_token": "", "refresh_token": "", "token_type": "Bearer", "expires_in": 0 } ` | **401 Unauthorized** → `json { "error": "" } `<br>**500 Internal Server Error** → `json { "error": "" } `                                                |
+| **POST** | `/auth/refresh`           | Refresh tokens (rotation: new access + new refresh) | **Header:** `X-Refresh-Token: <refresh_token>`          | **200 OK** → `json { "access_token": "", "refresh_token": "", "token_type": "Bearer", "expires_in": 0 } ` | **401 Unauthorized** → `json { "error": "" } `<br>**500 Internal Server Error** → `json { "error": "" } `                                                |
+| **POST** | `/auth/sign-out`          | Sign out, invalidate refresh token                  | **Header:** `X-Refresh-Token: <refresh_token>`          | **204 No Content** (empty body)                                                                           | **401 Unauthorized** → `json { "error": "" } `<br>**500 Internal Server Error** → `json { "error": "" } `                                                |
+| **GET**  | `/home`                   | Protected resource, requires valid JWT              | **Header:** `Authorization: Bearer <access_token>`      | **200 OK** → `json { "message": "" } `                                                                    | **401 Unauthorized** → `json { "error": "" } `<br>**403 Forbidden** → `json { "error": "" } `<br>**500 Internal Server Error** → `json { "error": "" } ` |
+

@@ -67,7 +67,7 @@ public class WebSecurityConfig {
     private static final String CLIENT_ID_PROPERTY_KEY_SUFFIX = "_CLIENT_ID";
     private static final String CLIENT_SECRET_PROPERTY_KEY_SUFFIX = "_CLIENT_SECRET";
     private static final Set<String> PERMIT_ALL_ENDPOINTS = Set.of(
-            "/auth/**", "/public/**"
+            "/auth/**", "/home/**", "/oauth2/**", "/login/**", "/error"
     );
 
     @Autowired
@@ -82,16 +82,18 @@ public class WebSecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(request -> request
                         .requestMatchers(PERMIT_ALL_ENDPOINTS.toArray(new String[0]))
                         .permitAll()
-                        .anyRequest()
-                        .authenticated())
+                        .requestMatchers("/private/**").authenticated()
+                        .anyRequest().permitAll())
                 .addFilterBefore(new JwtTokenFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)
                 .oauth2Login(oauth -> oauth
                         .clientRegistrationRepository(clientRegistrationRepository())
-                        .authorizedClientService(authorizedClientService()));
+                        .authorizedClientService(authorizedClientService())
+                        .defaultSuccessUrl("/home", true)
+                        .failureUrl("/auth/oauth2/error"));
         return http.build();
     }
 
@@ -129,6 +131,8 @@ public class WebSecurityConfig {
             return Optional.of(getClientBuilder(provider)
                     .clientId(System.getenv(CLIENT_PROPERTY_KEY_PREFIX + provider + CLIENT_ID_PROPERTY_KEY_SUFFIX))
                     .clientSecret(System.getenv(CLIENT_PROPERTY_KEY_PREFIX + provider + CLIENT_SECRET_PROPERTY_KEY_SUFFIX))
+                    .scope("openid", "profile", "email")
+                    .redirectUri("{baseUrl}/login/oauth2/code/{registrationId}")
                     .build());
         }
         return Optional.empty();

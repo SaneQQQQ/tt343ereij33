@@ -18,7 +18,7 @@
     </developers>
 
     <properties>
-        <maven.compiler.release>21</maven.compiler.release>
+        <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
@@ -27,7 +27,7 @@
         <junit.version>5.13.1</junit.version>
         <mockito.version>5.18.0</mockito.version>
         <spring-security.version>6.5.1</spring-security.version>
-        <spring-mvc.version>6.2.8</spring-mvc.version>
+        <spring-mvc.version>6.2.11</spring-mvc.version>
         <hikari.version>6.3.0</hikari.version>
         <postgres.version>42.7.7</postgres.version>
         <lombok.version>1.18.38</lombok.version>
@@ -145,5 +145,33 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.14.1</version>
+                    <configuration>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-war-plugin</artifactId>
+                    <version>3.4.0</version>
+                    <configuration>
+                        <failOnMissingWebXml>false</failOnMissingWebXml>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 
 </project>

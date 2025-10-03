@@ -6,10 +6,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/public")
-public class PublicController {
+@RequestMapping("/home")
+public class HomeController {
     @GetMapping
-    public ResponseEntity<String> publicMethod() {
-        return ResponseEntity.ok("Public!");
+    public ResponseEntity<String> homeMethod() {
+        return ResponseEntity.ok("Home Page!");
     }
 }
