@@ -8,33 +8,26 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 
 import javax.sql.DataSource;
+import java.util.concurrent.TimeUnit;
 
-/**
- * Provides general application configuration and property management.
- *
- * <p>This class loads application-level properties from the {@code application.properties}
- * file in the classpath using the {@code @PropertySource} annotation and can define
- * beans related to application infrastructure, such as data sources, service layer
- * beans, or property placeholder configurations.
- *
- * <p>This configuration is loaded in the root application context via
- * {@code getRootConfigClasses()} in {@code WebApplicationInitializer} so that these
- * properties and beans are available across the entire application, including to
- * other configuration classes such as {@code WebSecurityConfig}.
- */
 @Configuration
 @PropertySource("classpath:application.properties")
-public class ApplicationConfig {
+public class DataSourceConfig {
     @Value("${dataSource.driverClassName}")
     private String driverClassName;
 
     @Bean
-    public DataSource dataSourceHikari() {
+    public DataSource dataSource() {
         HikariConfig hikariConfig = new HikariConfig();
         hikariConfig.setJdbcUrl(System.getenv("DB_URL"));
         hikariConfig.setUsername(System.getenv("DB_USERNAME"));
         hikariConfig.setPassword(System.getenv("DB_PASSWORD"));
         hikariConfig.setDriverClassName(driverClassName);
+        hikariConfig.setMaximumPoolSize(15);
+        hikariConfig.setMinimumIdle(2);
+        hikariConfig.setConnectionTimeout(TimeUnit.SECONDS.toMillis(30));
+        hikariConfig.setIdleTimeout(TimeUnit.MINUTES.toMillis(10));
+        hikariConfig.setMaxLifetime(TimeUnit.MINUTES.toMillis(30));
         return new HikariDataSource(hikariConfig);
     }
 }

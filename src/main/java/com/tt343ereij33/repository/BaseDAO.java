@@ -10,8 +10,6 @@ public interface BaseDAO<T> {
 
     Optional<T> readById(Serializable id) throws SQLException;
 
-    Optional<T> readByUsername(String username) throws SQLException;
-
     List<T> readAll() throws SQLException;
 
     boolean update(T t) throws SQLException;

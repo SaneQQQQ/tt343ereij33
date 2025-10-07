@@ -1,11 +1,14 @@
 package com.tt343ereij33.configuration;
 
+import com.tt343ereij33.dto.ErrorResponse;
 import com.tt343ereij33.security.jwt.JwtTokenFilter;
 import com.tt343ereij33.security.jwt.JwtTokenProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -25,7 +28,12 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -34,41 +42,19 @@ import java.util.stream.Stream;
 
 import static org.springframework.security.config.oauth2.client.CommonOAuth2Provider.GOOGLE;
 
-/**
- * Configures Spring Security for the web application.
- *
- * <p>This class enables Spring Security by using the {@code @EnableWebSecurity} annotation
- * and defines security-related configurations, such as authentication, authorization,
- * password encoding, and security filters for HTTP requests.
- *
- * <p>It is loaded in the root application context via {@code getRootConfigClasses()} in
- * {@code WebApplicationInitializer} to ensure that security configurations apply globally
- * across the application, including the DispatcherServlet and static resources.
- *
- * <p>Key responsibilities:
- * <ul>
- *     <li>Disables CSRF and HTTP Basic as JWT is used for authentication.</li>
- *     <li>Enforces stateless session management.</li>
- *     <li>Defines public and secured endpoints with role-based access control.</li>
- *     <li>Adds a JWT filter to validate tokens on incoming requests.</li>
- *     <li>Configures a password encoder (BCrypt) for user password handling.</li>
- *     <li>Exposes an {@link AuthenticationManager} for authentication workflows.</li>
- * </ul>
- * </p>
- */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 @ComponentScan("com.tt343ereij33")
 public class WebSecurityConfig {
-    private JwtTokenProvider jwtTokenProvider;
     private static final List<CommonOAuth2Provider> OAUTH2_PROVIDERS = List.of(GOOGLE);
     private static final String CLIENT_PROPERTY_KEY_PREFIX = "OAUTH2_CLIENT_REGISTRATION_";
     private static final String CLIENT_ID_PROPERTY_KEY_SUFFIX = "_CLIENT_ID";
     private static final String CLIENT_SECRET_PROPERTY_KEY_SUFFIX = "_CLIENT_SECRET";
     private static final Set<String> PERMIT_ALL_ENDPOINTS = Set.of(
-            "/auth/**", "/home/**", "/oauth2/**", "/login/**", "/error"
+            "/auth/**", "/oauth2/**", "/login/**"
     );
+    private JwtTokenProvider jwtTokenProvider;
 
     @Autowired
     public void setJwtTokenProvider(JwtTokenProvider jwtTokenProvider) {
@@ -81,25 +67,55 @@ public class WebSecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors
+                        .configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(request -> request
                         .requestMatchers(PERMIT_ALL_ENDPOINTS.toArray(new String[0]))
                         .permitAll()
-                        .requestMatchers("/private/**").authenticated()
-                        .anyRequest().permitAll())
+                        .anyRequest()
+                        .authenticated())
                 .addFilterBefore(new JwtTokenFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)
                 .oauth2Login(oauth -> oauth
                         .clientRegistrationRepository(clientRegistrationRepository())
                         .authorizedClientService(authorizedClientService())
-                        .defaultSuccessUrl("/home", true)
-                        .failureUrl("/auth/oauth2/error"));
+                        .defaultSuccessUrl("/oauth2/callback/google", true)
+                        .failureUrl("/oauth2/callback/google?error=oauth_failed")
+                )
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpStatus.NOT_FOUND.value());
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.getWriter().write(ErrorResponse
+                                    .buildResponse(HttpStatus.NOT_FOUND, "The requested endpoint does not exist.", request.getServletPath()));
+                        })
+                );
         return http.build();
     }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(15);
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        String allowedOrigins = System.getenv("CORS_ALLOWED_ORIGINS");
+        if (allowedOrigins != null && !allowedOrigins.isBlank()) {
+            configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+        } else {
+            configuration.setAllowedOrigins(Collections.singletonList("http://localhost:3000"));
+        }
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Refresh-Token"));
+        configuration.setExposedHeaders(List.of("Authorization", "X-Refresh-Token"));
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 
     @Bean
@@ -145,7 +161,7 @@ public class WebSecurityConfig {
     private ClientRegistration.Builder getClientBuilder(CommonOAuth2Provider provider) {
         return switch (provider) {
             case GOOGLE -> CommonOAuth2Provider.GOOGLE.getBuilder(provider.name());
-            default -> throw new RuntimeException("Unknown OAuth2 client");
+            case GITHUB, FACEBOOK, OKTA -> throw new RuntimeException("[GITHUB, FACEBOOK, OKTA] OAuth2 clients not implemented yet");
         };
     }
 }

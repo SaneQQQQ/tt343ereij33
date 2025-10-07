@@ -3,7 +3,7 @@ package com.tt343ereij33.repository.impl;
 import com.tt343ereij33.entity.Role;
 import com.tt343ereij33.entity.User;
 import com.tt343ereij33.repository.BaseDAO;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Repository;
 
@@ -19,28 +19,24 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
+@RequiredArgsConstructor
 public class UserDAO implements BaseDAO<User> {
     private static final String CREATE_USER = "INSERT INTO users (username, password, email, role) VALUES (?, ?, ?, ?)";
     private static final String READ_USER_BY_ID = "SELECT * FROM users WHERE id = ?";
     private static final String READ_USER_BY_USERNAME = "SELECT * FROM users WHERE username = ?";
+    private static final String READ_USER_BY_EMAIL = "SELECT * FROM users WHERE email = ?";
     private static final String READ_ALL_USER = "SELECT * FROM users";
     private static final String UPDATE_USER = "UPDATE users SET username = ?, password = ?, email = ?, role = ? WHERE id = ?";
     private static final String DELETE_USER = "DELETE FROM users WHERE id = ?";
     private final DataSource dataSource;
     private final PasswordEncoder passwordEncoder;
 
-    @Autowired
-    public UserDAO(DataSource dataSource, PasswordEncoder passwordEncoder) {
-        this.dataSource = dataSource;
-        this.passwordEncoder = passwordEncoder;
-    }
-
     @Override
     public boolean create(User user) throws SQLException {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(CREATE_USER)) {
             preparedStatement.setString(1, user.getUsername());
-            preparedStatement.setString(2, encryptPassword(user.getPassword()));
+            preparedStatement.setString(2, user.getPassword() != null ? encryptPassword(user.getPassword()) : null);
             preparedStatement.setString(3, user.getEmail());
             preparedStatement.setString(4, user.getRole().getAuthority());
             int isSuccessful = preparedStatement.executeUpdate();
@@ -61,11 +57,22 @@ public class UserDAO implements BaseDAO<User> {
         }
     }
 
-    @Override
     public Optional<User> readByUsername(String username) throws SQLException {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(READ_USER_BY_USERNAME)) {
             preparedStatement.setString(1, username);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            if (resultSet.next()) {
+                return Optional.of(buildUser(resultSet));
+            }
+            return Optional.empty();
+        }
+    }
+
+    public Optional<User> readByEmail(String email) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(READ_USER_BY_EMAIL)) {
+            preparedStatement.setString(1, email);
             ResultSet resultSet = preparedStatement.executeQuery();
             if (resultSet.next()) {
                 return Optional.of(buildUser(resultSet));
@@ -92,7 +99,7 @@ public class UserDAO implements BaseDAO<User> {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(UPDATE_USER)) {
             preparedStatement.setString(1, user.getUsername());
-            preparedStatement.setString(2, encryptPassword(user.getPassword()));
+            preparedStatement.setString(2, user.getPassword() != null ? encryptPassword(user.getPassword()) : null);
             preparedStatement.setString(3, user.getEmail());
             preparedStatement.setString(4, user.getRole().getAuthority());
             preparedStatement.setLong(5, user.getId());

@@ -1,47 +1,44 @@
 package com.tt343ereij33.exceptions;
 
+import com.tt343ereij33.dto.ErrorResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.LocalDateTime;
+import javax.security.auth.RefreshFailedException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<JsonResponse> exceptionHandler(Exception exception) {
+    public ResponseEntity<String> exceptionHandler(HttpServletRequest request) {
         return new ResponseEntity<>(
-                new JsonResponse("INTERNAL SERVER ERROR",
-                        LocalDateTime.now().toString()),
+                ErrorResponse.buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", request.getServletPath()),
                 HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(UsernameNotFoundException.class)
-    public ResponseEntity<JsonResponse> usernameNotFoundExceptionHandler(Exception exception) {
+    public ResponseEntity<String> usernameNotFoundExceptionHandler(Exception exception, HttpServletRequest request) {
         return new ResponseEntity<>(
-                new JsonResponse("User Not Found",
-                        LocalDateTime.now().toString()),
+                ErrorResponse.buildResponse(HttpStatus.NOT_FOUND, exception.getMessage(), request.getServletPath()),
                 HttpStatus.NOT_FOUND);
     }
 
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<JsonResponse> badCredentialsExceptionHandler(Exception exception) {
+    @ExceptionHandler({BadCredentialsException.class, RefreshFailedException.class, OAuth2AuthenticationException.class})
+    public ResponseEntity<String> badCredentialsExceptionHandler(Exception exception, HttpServletRequest request) {
         return new ResponseEntity<>(
-                new JsonResponse("Incorrect username or password",
-                        LocalDateTime.now().toString()),
+                ErrorResponse.buildResponse(HttpStatus.UNAUTHORIZED, exception.getMessage(), request.getServletPath()),
                 HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(UserCreationException.class)
-    public ResponseEntity<JsonResponse> userCreationExceptionHandler(Exception exception) {
+    public ResponseEntity<String> userCreationExceptionHandler(Exception exception, HttpServletRequest request) {
         return new ResponseEntity<>(
-                new JsonResponse(exception.getMessage(),
-                        LocalDateTime.now().toString()),
+                ErrorResponse.buildResponse(HttpStatus.CONFLICT, exception.getMessage(), request.getServletPath()),
                 HttpStatus.CONFLICT);
     }
-
-    public record JsonResponse(String message, String timestamp) {}
 }

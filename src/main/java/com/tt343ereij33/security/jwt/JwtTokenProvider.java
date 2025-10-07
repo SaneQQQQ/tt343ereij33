@@ -10,7 +10,7 @@ import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -24,34 +24,31 @@ import java.util.Date;
 import java.util.stream.Collectors;
 
 @Component
+@RequiredArgsConstructor
 @PropertySource("classpath:application.properties")
 public class JwtTokenProvider {
-    private static final String JWT_SECRET = System.getenv("JWT_SECRET");
-    private final UserDetailsServiceImpl userDetailsServiceImpl;
     @Value("${jwt.token.validityInMilliseconds:3600000}")
-    private long jwtTokenValidityInMilliseconds;
+    private long jwtAccessTokenValidity;
     @Value("${refresh.token.validityInMilliseconds:2592000000}")
-    private long refreshTokenValidityInMilliseconds;
-    private SecretKey secretKey;
-
-    @Autowired
-    public JwtTokenProvider(UserDetailsServiceImpl userDetailsServiceImpl) {
-        this.userDetailsServiceImpl = userDetailsServiceImpl;
-    }
+    private long jwtRefreshTokenValidity;
+    private SecretKey jwtAccessSecretKey;
+    private SecretKey jwtRefreshSecretKey;
+    private final UserDetailsServiceImpl userDetailsServiceImpl;
 
     @PostConstruct
     public void init() {
-        this.secretKey = Keys.hmacShaKeyFor(JWT_SECRET.getBytes(StandardCharsets.UTF_8));
+        jwtAccessSecretKey = Keys.hmacShaKeyFor(System.getenv("JWT_ACCESS_SECRET").getBytes(StandardCharsets.UTF_8));
+        jwtRefreshSecretKey = Keys.hmacShaKeyFor(System.getenv("JWT_REFRESH_SECRET").getBytes(StandardCharsets.UTF_8));
     }
 
-    public String createToken(User user) {
+    public String generateAccessToken(User user) {
         String username = user.getUsername();
         String authorities = user.getAuthorities()
                 .stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
         Date now = new Date();
-        Date validity = new Date(now.getTime() + jwtTokenValidityInMilliseconds);
+        Date validity = new Date(now.getTime() + jwtAccessTokenValidity);
         return Jwts.builder()
                 .claims(Jwts.claims()
                         .subject(username)
@@ -59,21 +56,21 @@ public class JwtTokenProvider {
                         .build())
                 .issuedAt(now)
                 .expiration(validity)
-                .signWith(secretKey, Jwts.SIG.HS256)
+                .signWith(jwtAccessSecretKey, Jwts.SIG.HS512)
                 .compact();
     }
 
-    public String createRefreshToken(User user) {
+    public String generateRefreshToken(User user) {
         String username = user.getUsername();
         Date now = new Date();
-        Date validity = new Date(now.getTime() + refreshTokenValidityInMilliseconds);
+        Date validity = new Date(now.getTime() + jwtRefreshTokenValidity);
         return Jwts.builder()
                 .claims(Jwts.claims()
                         .subject(username)
                         .build())
                 .issuedAt(now)
                 .expiration(validity)
-                .signWith(secretKey, Jwts.SIG.HS256)
+                .signWith(jwtRefreshSecretKey, Jwts.SIG.HS512)
                 .compact();
     }
 
@@ -84,10 +81,39 @@ public class JwtTokenProvider {
                 : null;
     }
 
-    public boolean validateToken(String token) {
+    public Authentication getAuthentication(String token) {
+        User user = userDetailsServiceImpl.loadUserByUsername(getAccessTokenUsername(token));
+        return new UsernamePasswordAuthenticationToken(user, token, user.getAuthorities());
+    }
+
+    public boolean validateAccessToken(String token) {
+        return validateToken(token, jwtAccessSecretKey);
+    }
+
+    public boolean validateRefreshToken(String token) {
+        return validateToken(token, jwtRefreshSecretKey);
+    }
+
+    public String getAccessTokenUsername(String token) {
+        return getUsername(token, jwtAccessSecretKey);
+    }
+
+    public String getRefreshTokenUsername(String token) {
+        return getUsername(token, jwtRefreshSecretKey);
+    }
+
+    public long getAccessTokenValidity() {
+        return jwtAccessTokenValidity / 1000;
+    }
+
+    public long getRefreshTokenValidity() {
+        return jwtRefreshTokenValidity / 1000;
+    }
+
+    private boolean validateToken(String token, SecretKey key) {
         try {
             Jwts.parser()
-                    .verifyWith(secretKey)
+                    .verifyWith(key)
                     .build()
                     .parseSignedClaims(token);
             return true;
@@ -97,14 +123,12 @@ public class JwtTokenProvider {
         }
     }
 
-    public Authentication getAuthentication(String token) {
-        String username = Jwts.parser()
-                .verifyWith(secretKey)
+    private String getUsername(String token, SecretKey key) {
+        return Jwts.parser()
+                .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload()
                 .getSubject();
-        User user = userDetailsServiceImpl.loadUserByUsername(username);
-        return new UsernamePasswordAuthenticationToken(user, token, user.getAuthorities());
     }
 }

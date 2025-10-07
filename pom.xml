@@ -28,8 +28,10 @@
         <mockito.version>5.18.0</mockito.version>
         <spring-security.version>6.5.1</spring-security.version>
         <spring-mvc.version>6.2.11</spring-mvc.version>
+        <spring-data.version>3.5.4</spring-data.version>
         <hikari.version>6.3.0</hikari.version>
         <postgres.version>42.7.7</postgres.version>
+        <redis.version>6.1.0</redis.version>
         <lombok.version>1.18.38</lombok.version>
         <jwt.version>0.12.5</jwt.version>
         <jackson.version>2.17.1</jackson.version>
@@ -69,6 +71,11 @@
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-oauth2-jose</artifactId>
             <version>${spring-security.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.data</groupId>
+            <artifactId>spring-data-redis</artifactId>
+            <version>${spring-data.version}</version>
         </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
@@ -124,6 +131,11 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <version>${postgres.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>redis.clients</groupId>
+            <artifactId>jedis</artifactId>
+            <version>${redis.version}</version>
         </dependency>
         <!-- TEST DEPENDENCIES -->
         <dependency>
