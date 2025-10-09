@@ -3,6 +3,9 @@ package com.tt343ereij33.configuration;
 import com.tt343ereij33.dto.ErrorResponse;
 import com.tt343ereij33.security.jwt.JwtTokenFilter;
 import com.tt343ereij33.security.jwt.JwtTokenProvider;
+import com.tt343ereij33.security.oauth2.OAuth2FailureHandler;
+import com.tt343ereij33.security.oauth2.OAuth2SuccessHandler;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -40,22 +43,27 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.springframework.security.config.oauth2.client.CommonOAuth2Provider.GITHUB;
 import static org.springframework.security.config.oauth2.client.CommonOAuth2Provider.GOOGLE;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@RequiredArgsConstructor
 @ComponentScan("com.tt343ereij33")
 public class WebSecurityConfig {
-    private static final List<CommonOAuth2Provider> OAUTH2_PROVIDERS = List.of(GOOGLE);
+    private JwtTokenProvider jwtTokenProvider;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final OAuth2FailureHandler oAuth2FailureHandler;
+    private static final List<CommonOAuth2Provider> OAUTH2_PROVIDERS = List.of(GOOGLE, GITHUB);
     private static final String CLIENT_PROPERTY_KEY_PREFIX = "OAUTH2_CLIENT_REGISTRATION_";
     private static final String CLIENT_ID_PROPERTY_KEY_SUFFIX = "_CLIENT_ID";
     private static final String CLIENT_SECRET_PROPERTY_KEY_SUFFIX = "_CLIENT_SECRET";
     private static final Set<String> PERMIT_ALL_ENDPOINTS = Set.of(
             "/auth/**", "/oauth2/**", "/login/**"
     );
-    private JwtTokenProvider jwtTokenProvider;
 
+    // TODO: Resolve circular dependency and remove setter
     @Autowired
     public void setJwtTokenProvider(JwtTokenProvider jwtTokenProvider) {
         this.jwtTokenProvider = jwtTokenProvider;
@@ -80,23 +88,18 @@ public class WebSecurityConfig {
                 .oauth2Login(oauth -> oauth
                         .clientRegistrationRepository(clientRegistrationRepository())
                         .authorizedClientService(authorizedClientService())
-                        .defaultSuccessUrl("/oauth2/callback/google", true)
-                        .failureUrl("/oauth2/callback/google?error=oauth_failed")
+                        .successHandler(oAuth2SuccessHandler)
+                        .failureHandler(oAuth2FailureHandler)
                 )
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(HttpStatus.NOT_FOUND.value());
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                            response.getWriter().write(ErrorResponse
-                                    .buildResponse(HttpStatus.NOT_FOUND, "The requested endpoint does not exist.", request.getServletPath()));
+                            response.getWriter().write(ErrorResponse.buildResponse(HttpStatus.NOT_FOUND,
+                                    "The requested endpoint does not exist.", request.getServletPath()));
                         })
                 );
         return http.build();
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(15);
     }
 
     @Bean
@@ -109,13 +112,18 @@ public class WebSecurityConfig {
             configuration.setAllowedOrigins(Collections.singletonList("http://localhost:3000"));
         }
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Refresh-Token"));
-        configuration.setExposedHeaders(List.of("Authorization", "X-Refresh-Token"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Refresh-Token", "User-Agent"));
+        configuration.setExposedHeaders(List.of("Authorization", "Content-Type", "X-Refresh-Token", "User-Agent"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(15);
     }
 
     @Bean
@@ -147,7 +155,6 @@ public class WebSecurityConfig {
             return Optional.of(getClientBuilder(provider)
                     .clientId(System.getenv(CLIENT_PROPERTY_KEY_PREFIX + provider + CLIENT_ID_PROPERTY_KEY_SUFFIX))
                     .clientSecret(System.getenv(CLIENT_PROPERTY_KEY_PREFIX + provider + CLIENT_SECRET_PROPERTY_KEY_SUFFIX))
-                    .scope("openid", "profile", "email")
                     .redirectUri("{baseUrl}/login/oauth2/code/{registrationId}")
                     .build());
         }
@@ -161,7 +168,8 @@ public class WebSecurityConfig {
     private ClientRegistration.Builder getClientBuilder(CommonOAuth2Provider provider) {
         return switch (provider) {
             case GOOGLE -> CommonOAuth2Provider.GOOGLE.getBuilder(provider.name());
-            case GITHUB, FACEBOOK, OKTA -> throw new RuntimeException("[GITHUB, FACEBOOK, OKTA] OAuth2 clients not implemented yet");
+            case GITHUB -> CommonOAuth2Provider.GITHUB.getBuilder(provider.name());
+            case FACEBOOK, OKTA -> throw new RuntimeException("[FACEBOOK, OKTA] OAuth2 clients not implemented yet");
         };
     }
 }

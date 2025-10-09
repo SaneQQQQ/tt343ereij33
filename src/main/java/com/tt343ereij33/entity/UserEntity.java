@@ -1,9 +1,8 @@
 package com.tt343ereij33.entity;
 
-import lombok.AllArgsConstructor;
+import com.tt343ereij33.entity.enums.Role;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -15,11 +14,11 @@ import java.util.Collections;
 @Getter
 @Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class User implements UserDetails {
+public class UserEntity implements UserDetails {
     private Long id;
     private String username;
+    private String firstName;
+    private String lastName;
     private String password;
     private String email;
     private boolean verified;

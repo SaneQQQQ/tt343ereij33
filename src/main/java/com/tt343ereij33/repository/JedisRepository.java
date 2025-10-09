@@ -1,5 +1,6 @@
 package com.tt343ereij33.repository;
 
+import com.tt343ereij33.utils.RefreshTokenBody;
 import com.tt343ereij33.utils.TokenHasher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -11,13 +12,12 @@ public class JedisRepository {
     private final JedisPooled jedisPooled;
     private static final String PREFIX = "refresh:";
 
-    //TODO: store in value: {userId, issuedAt, expiresAt, ip (use Utilities method), userAgent (request.getHeader("User-Agent"))}
-    public void storeRefreshToken(String token, Long userId, long ttlMs) {
-        jedisPooled.setex(PREFIX + TokenHasher.hmacToken(token), ttlMs, userId.toString());
+    public void saveRefreshToken(String token, long ttlMs, RefreshTokenBody body) {
+        jedisPooled.setex(PREFIX + TokenHasher.hmacToken(token), ttlMs, RefreshTokenBody.toJson(body));
     }
 
-    public Long getUserIdByToken(String token) {
-        return Long.valueOf(jedisPooled.get(PREFIX + TokenHasher.hmacToken(token)));
+    public RefreshTokenBody getBodyByToken(String token) {
+        return RefreshTokenBody.fromJson(jedisPooled.get(PREFIX + TokenHasher.hmacToken(token)));
     }
 
     public void deleteRefreshToken(String token) {

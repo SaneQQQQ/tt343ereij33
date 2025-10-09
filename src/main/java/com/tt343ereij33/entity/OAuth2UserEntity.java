@@ -1,9 +1,7 @@
 package com.tt343ereij33.entity;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.security.config.oauth2.client.CommonOAuth2Provider;
 import org.springframework.security.core.GrantedAuthority;
@@ -16,13 +14,11 @@ import java.util.Collections;
 @Getter
 @Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class OAuth2User implements UserDetails {
+public class OAuth2UserEntity implements UserDetails {
     private Long id;
     private CommonOAuth2Provider provider;
     private String providerUserId;
-    private User user;
+    private UserEntity user;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

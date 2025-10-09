@@ -14,15 +14,14 @@ import java.util.Map;
 @RestController
 @RequestMapping("/home")
 public class HomeController {
+    // TODO: Revome this controller.. this is only for testing purposes
     @GetMapping
-    public ResponseEntity<?> getHome() {
+    public ResponseEntity<?> home() {
+        Map<String, String> response = new HashMap<>();
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        Map<String, String> response = new HashMap<>();
         if (authentication != null && authentication.isAuthenticated()) {
             response.put("message", "Welcome to the protected home resource! User: " + authentication.getName());
-        } else {
-            response.put("message", "Welcome to the home resource!");
         }
 
         return new ResponseEntity<>(response, HttpStatus.OK);

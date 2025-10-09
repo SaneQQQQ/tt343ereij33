@@ -1,7 +1,9 @@
 package com.tt343ereij33.security.jwt;
 
-import com.tt343ereij33.entity.User;
+import com.tt343ereij33.entity.UserEntity;
 import com.tt343ereij33.service.impl.UserDetailsServiceImpl;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ClaimsBuilder;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
@@ -11,6 +13,7 @@ import io.jsonwebtoken.security.SignatureException;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -33,7 +36,13 @@ public class JwtTokenProvider {
     private long jwtRefreshTokenValidity;
     private SecretKey jwtAccessSecretKey;
     private SecretKey jwtRefreshSecretKey;
-    private final UserDetailsServiceImpl userDetailsServiceImpl;
+    private UserDetailsServiceImpl userDetailsServiceImpl;
+
+    // TODO: Resolve circular dependency and remove setter
+    @Autowired
+    public void setUserDetailsServiceImpl(UserDetailsServiceImpl userDetailsServiceImpl) {
+        this.userDetailsServiceImpl = userDetailsServiceImpl;
+    }
 
     @PostConstruct
     public void init() {
@@ -41,37 +50,12 @@ public class JwtTokenProvider {
         jwtRefreshSecretKey = Keys.hmacShaKeyFor(System.getenv("JWT_REFRESH_SECRET").getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateAccessToken(User user) {
-        String username = user.getUsername();
-        String authorities = user.getAuthorities()
-                .stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.joining(","));
-        Date now = new Date();
-        Date validity = new Date(now.getTime() + jwtAccessTokenValidity);
-        return Jwts.builder()
-                .claims(Jwts.claims()
-                        .subject(username)
-                        .add("roles", authorities)
-                        .build())
-                .issuedAt(now)
-                .expiration(validity)
-                .signWith(jwtAccessSecretKey, Jwts.SIG.HS512)
-                .compact();
+    public String generateAccessToken(UserEntity user) {
+        return generateToken(user, jwtAccessSecretKey, jwtAccessTokenValidity);
     }
 
-    public String generateRefreshToken(User user) {
-        String username = user.getUsername();
-        Date now = new Date();
-        Date validity = new Date(now.getTime() + jwtRefreshTokenValidity);
-        return Jwts.builder()
-                .claims(Jwts.claims()
-                        .subject(username)
-                        .build())
-                .issuedAt(now)
-                .expiration(validity)
-                .signWith(jwtRefreshSecretKey, Jwts.SIG.HS512)
-                .compact();
+    public String generateRefreshToken(UserEntity user) {
+        return generateToken(user, jwtRefreshSecretKey, jwtRefreshTokenValidity);
     }
 
     public String resolveToken(HttpServletRequest request) {
@@ -82,7 +66,7 @@ public class JwtTokenProvider {
     }
 
     public Authentication getAuthentication(String token) {
-        User user = userDetailsServiceImpl.loadUserByUsername(getAccessTokenUsername(token));
+        UserEntity user = userDetailsServiceImpl.loadUserByUsername(getAccessTokenUsername(token));
         return new UsernamePasswordAuthenticationToken(user, token, user.getAuthorities());
     }
 
@@ -108,6 +92,52 @@ public class JwtTokenProvider {
 
     public long getRefreshTokenValidity() {
         return jwtRefreshTokenValidity / 1000;
+    }
+
+    public long getRefreshTokenExpiration(String refreshToken) {
+        return Jwts.parser()
+                .verifyWith(jwtRefreshSecretKey)
+                .build()
+                .parseSignedClaims(refreshToken)
+                .getPayload()
+                .getExpiration()
+                .getTime();
+    }
+
+    public long getRefreshTokenIssuedAt(String refreshToken) {
+        return Jwts.parser()
+                .verifyWith(jwtRefreshSecretKey)
+                .build()
+                .parseSignedClaims(refreshToken)
+                .getPayload()
+                .getIssuedAt()
+                .getTime();
+    }
+
+    private String generateToken(UserEntity user, SecretKey key, long validityInMilliseconds) {
+        Date now = new Date();
+        Date validity = new Date(now.getTime() + validityInMilliseconds);
+        return Jwts.builder()
+                .claims(generateClaims(user, key.equals(jwtAccessSecretKey)))
+                .issuedAt(now)
+                .expiration(validity)
+                .signWith(key, Jwts.SIG.HS512)
+                .compact();
+    }
+
+    private Claims generateClaims(UserEntity user, boolean setRoles) {
+        ClaimsBuilder claimsBuilder = Jwts.claims().subject(user.getUsername());
+        if (setRoles){
+            claimsBuilder.add("roles", getAuthorities(user));
+        }
+        return claimsBuilder.build();
+    }
+
+    private String getAuthorities(UserEntity user) {
+        return user.getAuthorities()
+                .stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.joining(","));
     }
 
     private boolean validateToken(String token, SecretKey key) {

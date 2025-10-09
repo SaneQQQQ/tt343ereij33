@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class EmailController {
     @PostMapping("/verify")
     public ResponseEntity<?> verifyEmail(@RequestParam("token") String verificationToken) {
-        //TODO: Implement Email verification functionality
+        // TODO: Implement Email verification functionality
         return new ResponseEntity<>("Not implemented yet", HttpStatus.NOT_FOUND);
     }
 }

@@ -15,28 +15,28 @@ import javax.security.auth.RefreshFailedException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<String> exceptionHandler(HttpServletRequest request) {
+    public ResponseEntity<String> internalServerErrorHandler(HttpServletRequest request) {
         return new ResponseEntity<>(
-                ErrorResponse.buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", request.getServletPath()),
+                ErrorResponse.buildResponse(HttpStatus.INTERNAL_SERVER_ERROR,"Internal Server Error", request.getServletPath()),
                 HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(UsernameNotFoundException.class)
-    public ResponseEntity<String> usernameNotFoundExceptionHandler(Exception exception, HttpServletRequest request) {
+    public ResponseEntity<String> notFoundHandler(Exception exception, HttpServletRequest request) {
         return new ResponseEntity<>(
                 ErrorResponse.buildResponse(HttpStatus.NOT_FOUND, exception.getMessage(), request.getServletPath()),
                 HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler({BadCredentialsException.class, RefreshFailedException.class, OAuth2AuthenticationException.class})
-    public ResponseEntity<String> badCredentialsExceptionHandler(Exception exception, HttpServletRequest request) {
+    public ResponseEntity<String> unauthorizedHandler(Exception exception, HttpServletRequest request) {
         return new ResponseEntity<>(
                 ErrorResponse.buildResponse(HttpStatus.UNAUTHORIZED, exception.getMessage(), request.getServletPath()),
                 HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(UserCreationException.class)
-    public ResponseEntity<String> userCreationExceptionHandler(Exception exception, HttpServletRequest request) {
+    public ResponseEntity<String> conflictHandler(Exception exception, HttpServletRequest request) {
         return new ResponseEntity<>(
                 ErrorResponse.buildResponse(HttpStatus.CONFLICT, exception.getMessage(), request.getServletPath()),
                 HttpStatus.CONFLICT);

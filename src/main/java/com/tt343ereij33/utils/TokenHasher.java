@@ -15,6 +15,7 @@ public class TokenHasher {
             byte[] hash = mac.doFinal(token.getBytes(StandardCharsets.UTF_8));
             return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
         } catch (Exception e) {
+            // TODO: handle exception without throwing a RuntimeException
             throw new RuntimeException("Failed to HMAC token", e);
         }
     }
